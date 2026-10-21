@@ -1,7 +1,6 @@
 name: Release & Tag
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - '*'
@@ -9,6 +8,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to create the release
     steps:
       - uses: actions/checkout@v4
       - name: Generate Release Notes

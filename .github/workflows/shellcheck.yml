@@ -8,28 +8,43 @@ on:
 
 jobs:
   shellcheck:
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # GitHub has no Alpine or CentOS runners, so those distros run as containers on Ubuntu
+    container: ${{ matrix.container }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, centos-latest, alpine-latest]
+        include:
+          - name: ubuntu
+            os: ubuntu-latest
+          - name: macos
+            os: macos-latest
+          - name: alpine
+            os: ubuntu-latest
+            container: alpine:3.20
+          - name: rocky-linux
+            os: ubuntu-latest
+            container: rockylinux:9
     steps:
-      - uses: actions/checkout@v4
-      - name: Install ShellCheck
+      - name: Install ShellCheck and Bats
+        shell: sh
         run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
+          if [ "$(uname)" = "Darwin" ]; then
             brew install shellcheck bats-core
-          elif [[ "${{ runner.os }}" == "Linux" ]]; then
-            if grep -qi alpine /etc/os-release; then
-              apk add --no-cache shellcheck bats
-            elif grep -qi centos /etc/os-release; then
-              yum install -y epel-release && yum install -y ShellCheck bats
-            else
-              sudo apt-get update && sudo apt-get install -y shellcheck bats
-            fi
+          elif [ -f /etc/alpine-release ]; then
+            apk add --no-cache bash git shellcheck bats
+          elif [ -f /etc/rocky-release ]; then
+            dnf install -y epel-release && dnf install -y git ShellCheck bats
+          else
+            sudo apt-get update && sudo apt-get install -y shellcheck bats
           fi
+      - uses: actions/checkout@v4
       - name: Run ShellCheck
+        shell: bash
         run: |
           find . -type f -name '*.sh' -exec shellcheck --shell=bash {} +
       - name: Run Bats Tests
+        shell: bash
         run: |
           bats tests/
