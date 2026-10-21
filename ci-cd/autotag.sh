@@ -38,27 +38,40 @@ while [[ $# -gt 0 ]]; do
   done
 
 # Get the latest tag, or default to 0.0.0 if none exists
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
-# Get commit messages since the latest tag
-COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline)
-
-# Parse the latest tag into major, minor, patch
-MAJOR=0; MINOR=0; PATCH=0
-IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG"
-
-# Inspect commit messages to determine which version part to increment
-for c in $COMMITS; do
-  if [[ "$c" == *"BREAKING CHANGE"* ]]; then
-    ((MAJOR++)); MINOR=0; PATCH=0  # Major bump resets minor/patch
-  elif [[ "$c" == feat:* ]]; then
-    ((MINOR++)); PATCH=0           # Minor bump resets patch
-  elif [[ "$c" == fix:* ]]; then
-    ((PATCH++))                    # Patch bump
-  fi
-  break  # Only the first relevant commit determines the bump
+if LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null); then
+  RANGE="${LATEST_TAG}..HEAD"
+else
+  LATEST_TAG="0.0.0"; RANGE="HEAD"  # No tags yet: inspect the whole history
 fi
+# Get full commit messages since the latest tag, one record per commit (NUL-separated)
+COMMITS=$(git log "$RANGE" --format='%B%x00' | tr '\0' '\036')
 
-target_tag="$MAJOR.$MINOR.$PATCH"  # Construct the new tag
+# Parse the latest tag into major, minor, patch (a leading 'v' is ignored)
+MAJOR=0; MINOR=0; PATCH=0
+IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_TAG#v}"
+PREFIX=""; [[ "$LATEST_TAG" == v* ]] && PREFIX="v"  # Keep the existing tag style
+
+# Inspect every commit; the largest bump found wins (major > minor > patch)
+BUMP="none"
+while IFS= read -r -d $'\036' c; do
+  c="${c#$'\n'}"  # git separates records with a newline
+  if [[ "$c" == *"BREAKING CHANGE"* || "$c" =~ ^[a-z]+(\(.*\))?!: ]]; then
+    BUMP="major"; break
+  elif [[ "$c" =~ ^feat(\(.*\))?: ]]; then
+    BUMP="minor"
+  elif [[ "$c" =~ ^fix(\(.*\))?: && "$BUMP" == "none" ]]; then
+    BUMP="patch"
+  fi
+done <<< "$COMMITS"
+
+case "$BUMP" in
+  major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0;;  # Major bump resets minor/patch
+  minor) MINOR=$((MINOR + 1)); PATCH=0;;           # Minor bump resets patch
+  patch) PATCH=$((PATCH + 1));;
+  none)  echo "[INFO] No feat/fix/breaking commits since $LATEST_TAG; nothing to tag."; exit 0;;
+esac
+
+target_tag="${PREFIX}$MAJOR.$MINOR.$PATCH"  # Construct the new tag
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "[DRY RUN] Would tag: $target_tag"
 else

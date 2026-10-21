@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
   done
 
 # Delete jobs that have completed successfully in the specified namespace
-kubectl -n "$NAMESPACE" delete job $(kubectl -n "$NAMESPACE" get jobs --field-selector status.successful=1 --no-headers | awk '{print $1}') 2>/dev/null || true
+kubectl -n "$NAMESPACE" get jobs --field-selector status.successful=1 --no-headers 2>/dev/null | awk '{print $1}' | xargs -r kubectl -n "$NAMESPACE" delete job 2>/dev/null || true
 
 # Delete pods older than the specified age threshold in the namespace
 kubectl -n "$NAMESPACE" get pods --no-headers | awk -v age="$AGE" '{if ($5 ~ /[0-9]+h/ && int($5) >= age) print $1}' | xargs -r kubectl -n "$NAMESPACE" delete pod
