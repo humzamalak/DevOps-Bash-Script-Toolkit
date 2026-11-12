@@ -2,251 +2,216 @@
 
 [![ShellCheck Lint & Test Matrix](https://github.com/humzamalak/DevOps-Bash-Script-Toolkit/actions/workflows/shellcheck.yml/badge.svg?branch=main)](https://github.com/humzamalak/DevOps-Bash-Script-Toolkit/actions/workflows/shellcheck.yml)
 
-A modular, POSIX-compliant toolkit of Bash scripts for infrastructure automation, CI/CD, Kubernetes, containers, monitoring, security, backups, and utilities. Designed for cross-platform use (Ubuntu, macOS, CentOS, Alpine) with robust testing and documentation.
+Ten small Bash scripts for routine DevOps tasks: running Terraform, cleaning up Kubernetes and Docker, checking hosts and services, loading secrets into Kubernetes, backing up to S3, rotating logs, and building, deploying and tagging releases.
 
----
+Each script is standalone. It takes command-line flags, prints `[INFO]`, `[ERROR]` or `[SUCCESS]` lines, runs with `set -euo pipefail`, and prints its own help with `--help`. You can run a script by hand, from cron, or as a step in a CI pipeline.
 
-## Why Use This Toolkit?
+## Scripts
 
-- **Standardization:** Enforces best practices and consistency across environments.
-- **Security Hardening:** Automates security tasks (secrets, cleanup, log rotation) to reduce human error and attack surface.
-- **Auditability:** All scripts are version-controlled and self-documented.
-- **Portability:** Works on all major Linux distros and macOS.
-- **Modularity:** Use only what you need; scripts are decoupled and composable.
-- **DevOps Enablement:** Accelerates onboarding, reduces toil, and supports CI/CD, monitoring, and backup out-of-the-box.
+| Script | What it does | Needs |
+|--------|--------------|-------|
+| [`infrastructure/terraform_apply_wrapper.sh`](infrastructure/terraform_apply_wrapper.sh) | Runs `terraform init`, `plan` and `apply` in a directory. Stops with an error if apply fails. Never runs `terraform destroy`. | `terraform` |
+| [`kubernetes/k8s_cleanup.sh`](kubernetes/k8s_cleanup.sh) | Deletes completed jobs and pods older than a given number of hours in one namespace. | `kubectl` |
+| [`containers/docker_cleanup.sh`](containers/docker_cleanup.sh) | Runs `docker system prune -f` and/or `docker volume prune -f`. | `docker` |
+| [`monitoring/monitor_resources.sh`](monitoring/monitor_resources.sh) | Compares CPU, memory and root disk usage with thresholds and prints an alert line for each one exceeded. | macOS (`top -l`, `vm_stat`) |
+| [`monitoring/check_service_health.sh`](monitoring/check_service_health.sh) | Checks that a process is running and, optionally, that a port is open on `127.0.0.1`. | `pgrep`, `nc` |
+| [`security/env_to_k8s_secrets.sh`](security/env_to_k8s_secrets.sh) | Creates or updates a Kubernetes generic secret from a `.env` file. | `kubectl` |
+| [`backups/backup_to_s3.sh`](backups/backup_to_s3.sh) | Syncs a local directory to an S3 bucket with `aws s3 sync`. | AWS CLI with credentials |
+| [`utilities/log_rotate.sh`](utilities/log_rotate.sh) | Compresses a log file to a timestamped `.gz` copy and empties the original, when it passes a size or age limit. | `gzip` |
+| [`ci-cd/build_deploy.sh`](ci-cd/build_deploy.sh) | Builds and pushes a Docker image from the current directory, then sets it on a Kubernetes deployment. | `docker`, `kubectl` |
+| [`ci-cd/autotag.sh`](ci-cd/autotag.sh) | Reads commit messages since the last tag and creates the next semantic version tag. | `git` |
 
----
+## Quick start
 
-## When and Where to Use These Scripts
-
-This toolkit is designed for a variety of DevOps, SRE, and platform engineering scenarios. Below are practical examples of where and when to use each script category:
-
-- **Infrastructure Automation**
-  - Use in CI/CD pipelines to automate Terraform deployments and ensure safe, repeatable infrastructure changes.
-  - Run on developer machines or build servers to standardize infrastructure provisioning.
-  - Stop on a failed apply with a clear message, so you can review the plan before you try again.
-
-- **Kubernetes Management**
-  - Schedule cleanup scripts as CronJobs in your cluster to keep namespaces tidy and avoid resource leaks.
-  - Use during incident response to quickly remove failed jobs or pods.
-  - Integrate into GitOps workflows for automated cluster hygiene.
-
-- **Container Management**
-  - Run on CI/CD runners or build agents to keep Docker environments clean and prevent disk exhaustion.
-  - Use in developer environments to automate cleanup of unused images and volumes.
-  - Schedule as a cron job on production hosts to maintain healthy container infrastructure.
-
-- **Monitoring**
-  - Deploy as part of server bootstrapping to provide lightweight, scriptable monitoring and alerting.
-  - Integrate with external alerting systems (e.g., Slack, email) for custom notifications.
-  - Use in test environments to validate resource usage and service health.
-
-- **Security**
-  - Automate the creation and rotation of Kubernetes secrets from .env files during deployments.
-  - Use in CI/CD to inject secrets securely into clusters without manual handling.
-  - Employ as part of compliance and audit workflows to ensure secrets are managed as code.
-
-- **Backups**
-  - Schedule regular backups to S3 for disaster recovery and business continuity.
-  - Use before major deployments or migrations to ensure data safety.
-  - Integrate with monitoring scripts to alert on backup failures.
-
-- **Utilities**
-  - Automate log rotation on servers to prevent disk space issues and maintain compliance.
-  - Use in combination with monitoring scripts for proactive maintenance.
-
-- **CI/CD**
-  - Automate build, tagging, and deployment steps in your CI/CD pipelines for consistent, repeatable releases.
-  - Use autotagging to enforce semantic versioning based on commit messages.
-
-These scripts are suitable for:
-- Production and staging environments
-- Developer workstations
-- CI/CD runners (GitHub Actions, GitLab CI, Jenkins, etc.)
-- Kubernetes clusters (as CronJobs or part of GitOps flows)
-- Any environment where automation, reliability, and security are priorities
-
----
-
-## Folder Structure
-
-| Folder           | Purpose                                      |
-|------------------|----------------------------------------------|
-| `infrastructure/`| Infrastructure automation (e.g., Terraform)  |
-| `ci-cd/`         | CI/CD and version control scripts            |
-| `kubernetes/`    | Kubernetes management and cleanup            |
-| `containers/`    | Docker/container lifecycle management        |
-| `monitoring/`    | System and service monitoring scripts        |
-| `security/`      | Security automation and secrets management   |
-| `backups/`       | Backup and data protection scripts           |
-| `utilities/`     | General system utility scripts               |
-| `tests/`         | Bats-core tests for all scripts              |
-| `docs/`          | Documentation and templates                  |
-| `docs/planning/` | Original planning notes (scope, scenarios, task list) |
-
----
-
-## Script Overview & Usage
-
-### Infrastructure Automation
-
-#### `infrastructure/terraform_apply_wrapper.sh`
-Runs `terraform init`, `plan` and `apply` with clear logging. It never runs `terraform destroy`: if apply fails, it stops and tells you to review the plan.
 ```sh
-./infrastructure/terraform_apply_wrapper.sh --dir my-tf-dir --auto-approve
+git clone https://github.com/humzamalak/DevOps-Bash-Script-Toolkit.git
+cd DevOps-Bash-Script-Toolkit
+
+# Every script prints its options
+./kubernetes/k8s_cleanup.sh --help
+
+# Example: preview the next release tag without creating it
+./ci-cd/autotag.sh --dry-run
 ```
-- **Options:**  
-  `--dir` (directory), `--auto-approve`, `--help`
 
----
+Each script calls external tools (see the Needs column), so install those first. The scripts use `#!/usr/bin/env bash`.
 
-### Kubernetes Management
+## Usage
 
-#### `kubernetes/k8s_cleanup.sh`
-Cleans up completed/failed jobs and old pods in a namespace.
+### Terraform apply
+
+```sh
+./infrastructure/terraform_apply_wrapper.sh --dir ./envs/dev --auto-approve
+```
+
+| Option | Meaning |
+|--------|---------|
+| `-d`, `--dir` | Directory with the Terraform configuration (default: current directory) |
+| `--auto-approve` | Pass `-auto-approve` to `terraform apply` |
+
+If `apply` fails, the script exits with code 1. Terraform keeps any resources it created or changed before the error, so run `terraform plan`, fix the cause and run the script again. The old `--rollback` option ran `terraform destroy` on the whole stack; it now exits with code 2.
+
+### Kubernetes clean-up
+
 ```sh
 ./kubernetes/k8s_cleanup.sh --namespace dev --age 12
 ```
-- **Options:**  
-  `--namespace` (default: default), `--age` (hours, default: 24), `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `-n`, `--namespace` | Namespace (default: `default`) |
+| `--age` | Delete pods at least this many hours old (default: 24) |
 
-### Container Management
+This deletes every pod in the namespace whose age is shown in hours and is at or above `--age`, whatever its status, including running pods. Pods that a Deployment or other controller owns are recreated; standalone pods are not. Pods whose age `kubectl` shows in days (for example `3d` or `2d5h`) are not matched. Only jobs with a successful completion are deleted; failed jobs stay.
 
-#### `containers/docker_cleanup.sh`
-Safely prunes Docker resources and dangling volumes.
+### Docker clean-up
+
 ```sh
 ./containers/docker_cleanup.sh --prune --volumes
 ```
-- **Options:**  
-  `--prune`, `--volumes`, `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `--prune` | Run `docker system prune -f` (stopped containers, unused networks, dangling images, build cache) |
+| `--volumes` | Run `docker volume prune -f` (unused volumes) |
 
-### Monitoring
+With no option, the script does nothing.
 
-#### `monitoring/monitor_resources.sh`
-Monitors CPU, memory, and disk usage, alerting if thresholds are exceeded.
+### Resource monitoring
+
 ```sh
 ./monitoring/monitor_resources.sh --cpu 90 --mem 85 --disk 80
 ```
-- **Options:**  
-  `--cpu`, `--mem`, `--disk` (all default: 80), `--help`
 
-#### `monitoring/check_service_health.sh`
-Checks if a service/process is running and if a port is open.
+| Option | Meaning |
+|--------|---------|
+| `--cpu`, `--mem`, `--disk` | Alert thresholds in per cent (default: 80 each) |
+
+The CPU and memory checks use macOS commands, so the script runs on macOS only. The memory value is the `vm_stat` "Pages active" count, not a percentage. Alerts are printed lines; the exit code is 0 either way.
+
+### Service health
+
 ```sh
 ./monitoring/check_service_health.sh --service nginx --port 80
 ```
-- **Options:**  
-  `--service` (required), `--port`, `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `-s`, `--service` | Exact process name for `pgrep -x` (required) |
+| `-p`, `--port` | Port to test on `127.0.0.1` (optional) |
 
-### Security
+The script prints `[OK]` or `[FAIL]` for each check. It exits with code 0 even when a check fails, so read the output rather than the exit code.
 
-#### `security/env_to_k8s_secrets.sh`
-Converts a `.env` file to a Kubernetes secret.
+### `.env` to Kubernetes secret
+
 ```sh
 ./security/env_to_k8s_secrets.sh --file .env --namespace dev --secret my-app-secret
 ```
-- **Options:**  
-  `--file` (required), `--namespace` (required), `--secret` (required), `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `-f`, `--file` | Path to the `.env` file (required) |
+| `-n`, `--namespace` | Namespace (required) |
+| `-s`, `--secret` | Secret name (required) |
 
-### Backups
+The script generates the secret with `kubectl create secret generic --from-env-file --dry-run=client` and pipes it to `kubectl apply`, so running it again updates the secret. The values are not printed.
 
-#### `backups/backup_to_s3.sh`
-Backs up files/directories to AWS S3.
+### Back up to S3
+
 ```sh
-./backups/backup_to_s3.sh --source ./data --bucket my-bucket --key-prefix backups
+./backups/backup_to_s3.sh --source ./data --bucket my-bucket --key-prefix backups/app
 ```
-- **Options:**  
-  `--source` (required), `--bucket` (required), `--key-prefix`, `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `-s`, `--source` | Local directory to sync (required) |
+| `-b`, `--bucket` | Bucket name (required) |
+| `-k`, `--key-prefix` | Key prefix inside the bucket (optional) |
 
-### Utilities
+`aws s3 sync` copies new and changed files only and does not delete objects in the bucket. The source must be a directory.
 
-#### `utilities/log_rotate.sh`
-Rotates and compresses logs by size or age.
+### Log rotation
+
 ```sh
 ./utilities/log_rotate.sh --file /var/log/app.log --size 100 --age 7
 ```
-- **Options:**  
-  `--file` (required), `--size` (MB), `--age` (days), `--help`
 
----
+| Option | Meaning |
+|--------|---------|
+| `-f`, `--file` | Log file (required) |
+| `-s`, `--size` | Rotate when the file is at least this many MB (optional) |
+| `-a`, `--age` | Rotate when the file was last changed at least this many days ago (optional) |
 
-### CI/CD
+The script writes `app.log.YYYYMMDDHHMMSS.gz` next to the file, then empties `app.log`. It does not delete old archives. `--age` uses the BSD form of `stat` and works on macOS only; `--size` works on Linux and macOS.
 
-#### `ci-cd/build_deploy.sh`
-Builds a Docker image and updates a Kubernetes deployment.
+### Build and deploy
+
 ```sh
-./ci-cd/build_deploy.sh --image myrepo/app:latest --deployment my-app --namespace dev
+./ci-cd/build_deploy.sh --image registry.example.com/app:1.4.0 --deployment app --namespace dev
 ```
-- **Options:**  
-  `--image` (required), `--deployment` (required), `--namespace` (default: default), `--help`
 
-#### `ci-cd/autotag.sh`
-Auto-increments semantic version tags based on commit messages.
+| Option | Meaning |
+|--------|---------|
+| `-i`, `--image` | Image name and tag (required) |
+| `-d`, `--deployment` | Deployment name (required) |
+| `-n`, `--namespace` | Namespace (default: `default`) |
+
+Run it from the directory that holds the `Dockerfile`. The script assumes the container inside the deployment has the same name as the deployment.
+
+### Release tagging
+
 ```sh
-./ci-cd/autotag.sh --dry-run
+./ci-cd/autotag.sh --dry-run   # show the next tag
+./ci-cd/autotag.sh             # create it
+git push --tags                # the script does not push
 ```
-- **Options:**  
-  `--dry-run`, `--help`
 
----
+The script reads commit messages since the latest tag and bumps the version from them:
 
-## Implementation in DevOps Hardening
+| Commit message | Bump |
+|----------------|------|
+| Contains `BREAKING CHANGE`, or starts with `type!:` | major |
+| Starts with `feat:` or `feat(scope):` | minor |
+| Starts with `fix:` or `fix(scope):` | patch |
 
-1. **Integrate scripts into CI/CD pipelines** for automated infrastructure, deployment, and cleanup.
-2. **Schedule monitoring and cleanup scripts** via cron or systemd timers to ensure continuous hygiene.
-3. **Automate log rotation and backups** to prevent disk exhaustion and ensure data durability.
-4. **Use security scripts** to manage secrets and reduce manual handling of sensitive data.
-5. **Leverage modularity**: Compose scripts in custom workflows for your environment.
-6. **Test scripts** using the provided Bats-core tests in the `tests/` directory before production use.
+The largest bump wins. If there is no tag yet, it starts from `0.0.0`. A leading `v` on the existing tag is kept. If no commit matches, it creates no tag.
 
----
+## Tests and CI
 
-## Getting Started
+The [ShellCheck Lint & Test Matrix](.github/workflows/shellcheck.yml) workflow runs on every push and pull request to `main`, on Ubuntu, macOS, Alpine and Rocky Linux:
 
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/your-org/devops-bash-script-toolkit.git
-   cd devops-bash-script-toolkit
-   ```
-2. **Review the folder structure and scripts.**
-3. **Run ShellCheck and Bats tests** (see workflows or `tests/`).
+1. ShellCheck on every `.sh` file.
+2. The [Bats](https://github.com/bats-core/bats-core) tests in `tests/`.
 
----
+Run the same checks locally:
 
-## Contributing
+```sh
+find . -type f -name '*.sh' -exec shellcheck --shell=bash {} +
+bats tests/
+```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
+Test coverage is limited. Every script has a test that `--help` works. `terraform_apply_wrapper.sh` also has behaviour tests that use a stub `terraform` to check that a failed apply exits with an error and never calls `destroy`. The other scripts have no behaviour tests yet.
 
-## Security
+Pushing a tag runs the [release workflow](.github/workflows/release.yml), which creates a GitHub release with notes taken from `CHANGELOG.md`.
 
-See [`SECURITY.md`](SECURITY.md) for reporting and best practices.
+## Repository layout
 
-## Changelog
+```text
+infrastructure/   Terraform wrapper
+kubernetes/       Kubernetes clean-up
+containers/       Docker clean-up
+monitoring/       Resource and service checks
+security/         .env to Kubernetes secret
+backups/          S3 backup
+utilities/        Log rotation
+ci-cd/            Build, deploy and release tagging
+tests/            Bats tests
+docs/             Script documentation template and planning notes
+```
 
-See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+## Contributing, security and licence
 
----
-
-## Scalability & Maintainability Analysis
-
-This toolkit is highly scalable due to its modular design—scripts can be used independently or composed into larger workflows. Each script is self-contained, POSIX-compliant, and cross-platform, making it easy to maintain and extend. Adding new scripts or updating existing ones is straightforward, and the use of Bats-core for testing ensures reliability. The structure supports team collaboration, version control, and integration into any DevOps pipeline.
-
-**Next Steps / Improvements:**
-- Add more real-world usage examples and advanced workflows to the documentation.
-- Expand test coverage and add CI for automated linting and testing.
-- Consider packaging scripts for easier distribution (e.g., as a Homebrew tap or Docker image).
-- Add more integrations (e.g., Slack/Teams notifications, advanced monitoring hooks).
-
----
-
-**This README provides a comprehensive overview and practical guidance for using and extending the DevOps Bash Script Toolkit in your infrastructure and DevOps hardening efforts.**
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to add or change a script.
+- [SECURITY.md](SECURITY.md): how to report a vulnerability.
+- [CHANGELOG.md](CHANGELOG.md): release history.
+- Licence: [MIT](LICENSE).
