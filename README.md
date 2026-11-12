@@ -11,7 +11,7 @@ Each script is standalone. It takes command-line flags, prints `[INFO]`, `[ERROR
 | Script | What it does | Needs |
 |--------|--------------|-------|
 | [`infrastructure/terraform_apply_wrapper.sh`](infrastructure/terraform_apply_wrapper.sh) | Runs `terraform init`, `plan` and `apply` in a directory. Stops with an error if apply fails. Never runs `terraform destroy`. | `terraform` |
-| [`kubernetes/k8s_cleanup.sh`](kubernetes/k8s_cleanup.sh) | Deletes completed jobs and pods older than a given number of hours in one namespace. | `kubectl` |
+| [`kubernetes/k8s_cleanup.sh`](kubernetes/k8s_cleanup.sh) | Deletes completed jobs, and finished pods older than a given number of hours, in one namespace. | `kubectl` |
 | [`containers/docker_cleanup.sh`](containers/docker_cleanup.sh) | Runs `docker system prune -f` and/or `docker volume prune -f`. | `docker` |
 | [`monitoring/monitor_resources.sh`](monitoring/monitor_resources.sh) | Compares CPU, memory and root disk usage with thresholds and prints an alert line for each one exceeded. | macOS (`top -l`, `vm_stat`) |
 | [`monitoring/check_service_health.sh`](monitoring/check_service_health.sh) | Checks that a process is running and, optionally, that a port is open on `127.0.0.1`. | `pgrep`, `nc` |
@@ -54,15 +54,17 @@ If `apply` fails, the script exits with code 1. Terraform keeps any resources it
 ### Kubernetes clean-up
 
 ```sh
+./kubernetes/k8s_cleanup.sh --namespace dev --age 12 --dry-run   # preview
 ./kubernetes/k8s_cleanup.sh --namespace dev --age 12
 ```
 
 | Option | Meaning |
 |--------|---------|
 | `-n`, `--namespace` | Namespace (default: `default`) |
-| `--age` | Delete pods at least this many hours old (default: 24) |
+| `--age` | Delete finished pods at least this many hours old (default: 24) |
+| `--dry-run` | Print what would be deleted, but delete nothing |
 
-This deletes every pod in the namespace whose age is shown in hours and is at or above `--age`, whatever its status, including running pods. Pods that a Deployment or other controller owns are recreated; standalone pods are not. Pods whose age `kubectl` shows in days (for example `3d` or `2d5h`) are not matched. Only jobs with a successful completion are deleted; failed jobs stay.
+The script deletes pods only in phase `Succeeded` or `Failed`. It never deletes `Running`, `Pending` or `Unknown` pods. Age is measured from each pod's creation time. Only jobs with a successful completion are deleted; failed jobs stay.
 
 ### Docker clean-up
 
