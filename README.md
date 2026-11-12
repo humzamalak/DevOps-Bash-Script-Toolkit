@@ -24,7 +24,7 @@ This toolkit is designed for a variety of DevOps, SRE, and platform engineering 
 - **Infrastructure Automation**
   - Use in CI/CD pipelines to automate Terraform deployments and ensure safe, repeatable infrastructure changes.
   - Run on developer machines or build servers to standardize infrastructure provisioning.
-  - Employ rollback features in production to minimize downtime during failed infrastructure changes.
+  - Stop on a failed apply with a clear message, so you can review the plan before you try again.
 
 - **Kubernetes Management**
   - Schedule cleanup scripts as CronJobs in your cluster to keep namespaces tidy and avoid resource leaks.
@@ -91,12 +91,12 @@ These scripts are suitable for:
 ### Infrastructure Automation
 
 #### `infrastructure/terraform_apply_wrapper.sh`
-Automates `terraform apply` with safety checks and optional rollback.
+Runs `terraform init`, `plan` and `apply` with clear logging. It never runs `terraform destroy`: if apply fails, it stops and tells you to review the plan.
 ```sh
-./infrastructure/terraform_apply_wrapper.sh --dir my-tf-dir --auto-approve --rollback
+./infrastructure/terraform_apply_wrapper.sh --dir my-tf-dir --auto-approve
 ```
 - **Options:**  
-  `--dir` (directory), `--auto-approve`, `--rollback`, `--help`
+  `--dir` (directory), `--auto-approve`, `--help`
 
 ---
 
