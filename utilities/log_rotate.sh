@@ -46,6 +46,14 @@ while [[ $# -gt 0 ]]; do
 if [[ -z "$LOG_FILE" ]]; then
   echo "[ERROR] Log file is required."; show_help; exit 1
 fi
+if [[ ! -f "$LOG_FILE" ]]; then
+  echo "[ERROR] Log file not found: $LOG_FILE" >&2; exit 1
+fi
+
+# Last-modified time in epoch seconds: GNU/BusyBox stat -c, then BSD/macOS stat -f
+mtime() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"
+}
 
 should_rotate=false  # Flag to determine if rotation is needed
 
@@ -58,7 +66,7 @@ if [[ -n "$SIZE_MB" ]]; then
 fi
 # Check if log file exceeds age threshold
 if [[ -n "$AGE_DAYS" ]]; then
-  file_age=$(( ( $(date +%s) - $(stat -f %m "$LOG_FILE") ) / 86400 ))
+  file_age=$(( ( $(date +%s) - $(mtime "$LOG_FILE") ) / 86400 ))
   if (( file_age >= AGE_DAYS )); then
     should_rotate=true
   fi
