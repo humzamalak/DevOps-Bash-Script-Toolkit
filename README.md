@@ -1,5 +1,7 @@
 # DevOps Bash Script Toolkit
 
+[![ShellCheck Lint & Test Matrix](https://github.com/humzamalak/DevOps-Bash-Script-Toolkit/actions/workflows/shellcheck.yml/badge.svg?branch=main)](https://github.com/humzamalak/DevOps-Bash-Script-Toolkit/actions/workflows/shellcheck.yml)
+
 A modular, POSIX-compliant toolkit of Bash scripts for infrastructure automation, CI/CD, Kubernetes, containers, monitoring, security, backups, and utilities. Designed for cross-platform use (Ubuntu, macOS, CentOS, Alpine) with robust testing and documentation.
 
 ---
@@ -80,6 +82,7 @@ These scripts are suitable for:
 | `utilities/`     | General system utility scripts               |
 | `tests/`         | Bats-core tests for all scripts              |
 | `docs/`          | Documentation and templates                  |
+| `docs/planning/` | Original planning notes (scope, scenarios, task list) |
 
 ---
 
