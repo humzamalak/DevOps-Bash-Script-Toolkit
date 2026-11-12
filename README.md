@@ -102,7 +102,7 @@ The CPU and memory checks use macOS commands, so the script runs on macOS only. 
 | `-s`, `--service` | Exact process name for `pgrep -x` (required) |
 | `-p`, `--port` | Port to test on `127.0.0.1` (optional) |
 
-The script prints `[OK]` or `[FAIL]` for each check. It exits with code 0 even when a check fails, so read the output rather than the exit code.
+The script prints `[OK]` or `[FAIL]` for each check. It exits with code 0 when all checks pass, 1 when any check fails, and 2 when `pgrep` or `nc` is missing, so you can use it in cron, CI or a container health check.
 
 ### `.env` to Kubernetes secret
 
