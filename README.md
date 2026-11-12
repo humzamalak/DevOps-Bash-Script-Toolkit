@@ -144,7 +144,7 @@ The script generates the secret with `kubectl create secret generic --from-env-f
 | `-s`, `--size` | Rotate when the file is at least this many MB (optional) |
 | `-a`, `--age` | Rotate when the file was last changed at least this many days ago (optional) |
 
-The script writes `app.log.YYYYMMDDHHMMSS.gz` next to the file, then empties `app.log`. It does not delete old archives. `--age` uses the BSD form of `stat` and works on macOS only; `--size` works on Linux and macOS.
+The script writes `app.log.YYYYMMDDHHMMSS.gz` next to the file, then empties `app.log`. It does not delete old archives. Both `--size` and `--age` work on Linux (GNU and BusyBox) and macOS. If the file does not exist, the script exits with code 1.
 
 ### Build and deploy
 
