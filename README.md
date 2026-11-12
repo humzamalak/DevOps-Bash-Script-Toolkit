@@ -13,7 +13,7 @@ Each script is standalone. It takes command-line flags, prints `[INFO]`, `[ERROR
 | [`infrastructure/terraform_apply_wrapper.sh`](infrastructure/terraform_apply_wrapper.sh) | Runs `terraform init`, `plan` and `apply` in a directory. Stops with an error if apply fails. Never runs `terraform destroy`. | `terraform` |
 | [`kubernetes/k8s_cleanup.sh`](kubernetes/k8s_cleanup.sh) | Deletes completed jobs, and finished pods older than a given number of hours, in one namespace. | `kubectl` |
 | [`containers/docker_cleanup.sh`](containers/docker_cleanup.sh) | Runs `docker system prune -f` and/or `docker volume prune -f`. | `docker` |
-| [`monitoring/monitor_resources.sh`](monitoring/monitor_resources.sh) | Compares CPU, memory and root disk usage with thresholds and prints an alert line for each one exceeded. | macOS (`top -l`, `vm_stat`) |
+| [`monitoring/monitor_resources.sh`](monitoring/monitor_resources.sh) | Measures CPU, memory and root disk usage as percentages and prints an alert line for each threshold reached. | Linux (`/proc`) or macOS (`top`, `vm_stat`) |
 | [`monitoring/check_service_health.sh`](monitoring/check_service_health.sh) | Checks that a process is running and, optionally, that a port is open on `127.0.0.1`. | `pgrep`, `nc` |
 | [`security/env_to_k8s_secrets.sh`](security/env_to_k8s_secrets.sh) | Creates or updates a Kubernetes generic secret from a `.env` file. | `kubectl` |
 | [`backups/backup_to_s3.sh`](backups/backup_to_s3.sh) | Syncs a local directory to an S3 bucket with `aws s3 sync`. | AWS CLI with credentials |
@@ -89,7 +89,9 @@ With no option, the script does nothing.
 |--------|---------|
 | `--cpu`, `--mem`, `--disk` | Alert thresholds in per cent (default: 80 each) |
 
-The CPU and memory checks use macOS commands, so the script runs on macOS only. The memory value is the `vm_stat` "Pages active" count, not a percentage. Alerts are printed lines; the exit code is 0 either way.
+On Linux, CPU usage is the busy share of CPU time over a 1-second sample from `/proc/stat`, and memory usage is `(MemTotal - MemAvailable) / MemTotal` from `/proc/meminfo`. On macOS, CPU usage is `100 - idle` from `top`, and memory usage is active, wired and compressed pages as a share of total memory. Disk usage is the root filesystem from `df -P /`.
+
+The script prints one `[INFO]` line with all three values and an `[ALERT]` line for each threshold reached. It exits with code 0 when no threshold is reached, 1 when any alert is printed, and 2 on an unsupported OS.
 
 ### Service health
 
