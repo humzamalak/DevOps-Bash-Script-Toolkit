@@ -79,11 +79,11 @@ bash ./monitoring/monitor_resources.sh
 
 ## 📦 Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for code style, contribution flow, and testing guidelines.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for code style, contribution flow, and testing guidelines.
 
 ## 📄 License
 
-[MIT License](LICENSE)
+[MIT License](../../LICENSE)
 
 ````
 
